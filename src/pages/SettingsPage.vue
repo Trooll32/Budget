@@ -1,111 +1,138 @@
 <template>
   <section class="page">
 
-    <!-- Large title -->
     <h1 class="set-title">Настройки</h1>
 
-    <!-- ── Accounts ────────────────────────────────────────────────── -->
-    <div class="set-section">
-      <div class="set-section__head">
-        <div>
-          <div class="set-section__title">Счета</div>
-          <div class="set-section__sub">Распределение доходов по %</div>
-        </div>
-        <button class="set-add-btn" type="button" @click="addAccount">+ Счёт</button>
-      </div>
-
-      <div class="set-rows">
-        <div v-for="acc in draftAccounts" :key="acc.id" class="set-row">
-          <input v-model="acc.color" type="color" class="set-color" />
-          <input v-model="acc.name" class="set-row__name field-input" placeholder="Название" />
-          <div class="set-row__percent-wrap">
-            <input
-              v-model.number="acc.percent"
-              type="number" min="0" max="100" step="1"
-              class="set-row__percent field-input"
-            />
-            <span class="set-row__pct-sign">%</span>
-          </div>
-          <button class="set-del-btn" type="button" @click="removeAccount(acc.id)">×</button>
-        </div>
-      </div>
-
-      <!-- Percent bar -->
-      <div class="set-pct-bar">
-        <div
-          v-for="acc in draftAccounts" :key="acc.id"
-          class="set-pct-bar__seg"
-          :style="{ flex: acc.percent, background: acc.color }"
-          :title="acc.name + ': ' + acc.percent + '%'"
-        ></div>
-      </div>
-      <div class="set-pct-total" :class="percentTotal === 100 ? 'positive' : 'negative'">
-        {{ percentTotal === 100 ? '✔ 100%' : 'Сумма: ' + percentTotal + '% (должно быть 100%)' }}
-      </div>
-
-      <button
-        class="primary-btn"
-        type="button"
-        :disabled="percentTotal !== 100"
-        @click="saveAccounts"
-      >Сохранить счета</button>
-    </div>
-
-    <!-- ── Categories ──────────────────────────────────────────────── -->
-    <div class="set-section">
-      <div class="set-section__head">
-        <div>
-          <div class="set-section__title">Категории</div>
-          <div class="set-section__sub">Типы трат</div>
-        </div>
-        <button class="set-add-btn" type="button" @click="addCategory">+ Категория</button>
-      </div>
-
-      <div class="set-rows">
-        <div v-for="cat in draftCategories" :key="cat.id" class="set-row">
-          <input v-model="cat.color" type="color" class="set-color" />
-          <input v-model="cat.name" class="set-row__name field-input" placeholder="Название" />
-          <button class="set-del-btn" type="button" @click="removeCategory(cat.id)">×</button>
-        </div>
-      </div>
-
-      <button class="primary-btn" type="button" @click="saveCategories">Сохранить категории</button>
-    </div>
-
-    <!-- ── Data ──────────────────────────────────────────────────────────── -->
-    <div class="set-section">
-      <div class="set-section__head">
-        <div>
-          <div class="set-section__title">Данные</div>
-          <div class="set-section__sub">Бекап и восстановление</div>
-        </div>
-      </div>
-
-      <div class="set-data-btns">
-        <button class="set-data-btn" type="button" @click="downloadBackup">
-          <span class="set-data-btn__icon">⬇️</span>
-          <div>
-            <div class="set-data-btn__title">Экспорт JSON</div>
-            <div class="set-data-btn__sub">Скачать резервную копию</div>
-          </div>
-        </button>
-        <label class="set-data-btn" style="cursor:pointer;">
-          <span class="set-data-btn__icon">⬆️</span>
-          <div>
-            <div class="set-data-btn__title">Импорт JSON</div>
-            <div class="set-data-btn__sub">Восстановить из файла</div>
-          </div>
-          <input type="file" accept="application/json" hidden @change="importBackup" />
-        </label>
-      </div>
-
-      <button class="danger-btn" style="margin-top:var(--space-2);" type="button" @click="reset">
-        ⚠️ Сбросить все данные
+    <!-- ── Group: Бюджет ───────────────────────────────────────────── -->
+    <div class="set-group-label">Бюджет</div>
+    <div class="set-group">
+      <button class="set-row-btn" type="button" @click="openSheet('accounts')">
+        <span class="set-row-btn__icon">🏦</span>
+        <span class="set-row-btn__text">
+          <span class="set-row-btn__title">Счета</span>
+          <span class="set-row-btn__sub">{{ store.accounts.length }} счёта · распределение доходов</span>
+        </span>
+        <span class="set-row-btn__chevron">›</span>
+      </button>
+      <div class="set-group__divider"></div>
+      <button class="set-row-btn" type="button" @click="openSheet('categories')">
+        <span class="set-row-btn__icon">🏷️</span>
+        <span class="set-row-btn__text">
+          <span class="set-row-btn__title">Категории</span>
+          <span class="set-row-btn__sub">{{ store.categories.length }} категорий трат</span>
+        </span>
+        <span class="set-row-btn__chevron">›</span>
       </button>
     </div>
 
-    <!-- bottom padding for tab bar -->
+    <!-- ── Group: Данные ───────────────────────────────────────────── -->
+    <div class="set-group-label">Данные</div>
+    <div class="set-group">
+      <button class="set-row-btn" type="button" @click="downloadBackup">
+        <span class="set-row-btn__icon">⬇️</span>
+        <span class="set-row-btn__text">
+          <span class="set-row-btn__title">Экспорт JSON</span>
+          <span class="set-row-btn__sub">Скачать резервную копию</span>
+        </span>
+        <span class="set-row-btn__chevron">›</span>
+      </button>
+      <div class="set-group__divider"></div>
+      <label class="set-row-btn" style="cursor:pointer;">
+        <span class="set-row-btn__icon">⬆️</span>
+        <span class="set-row-btn__text">
+          <span class="set-row-btn__title">Импорт JSON</span>
+          <span class="set-row-btn__sub">Восстановить из файла</span>
+        </span>
+        <span class="set-row-btn__chevron">›</span>
+        <input type="file" accept="application/json" hidden @change="importBackup" />
+      </label>
+    </div>
+
+    <!-- ── Group: Опасно ───────────────────────────────────────────── -->
+    <div class="set-group-label">Опасная зона</div>
+    <div class="set-group set-group--danger">
+      <button class="set-row-btn set-row-btn--danger" type="button" @click="reset">
+        <span class="set-row-btn__icon">⚠️</span>
+        <span class="set-row-btn__text">
+          <span class="set-row-btn__title">Сбросить все данные</span>
+          <span class="set-row-btn__sub">Нельзя отменить</span>
+        </span>
+        <span class="set-row-btn__chevron">›</span>
+      </button>
+    </div>
+
     <div style="height: var(--space-8);"></div>
+
+    <!-- ── Sheet: Accounts ───────────────────────────────────────────── -->
+    <Teleport to="body">
+      <div class="sheet-backdrop" :class="{ open: activeSheet === 'accounts' }" @click="closeSheet">
+        <div class="sheet" :class="{ open: activeSheet === 'accounts' }" @click.stop ref="sheetAccEl">
+          <div class="sheet-handle" @touchstart.passive="dragStart($event, 'acc')" @touchmove.passive="dragMove($event, 'acc')" @touchend="dragEnd('acc')"></div>
+          <div class="sheet-head">
+            <div>
+              <h3>Счета</h3>
+              <p class="helper">Распределение доходов по %</p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="set-sheet-add" type="button" @click="addAccount">+ Счёт</button>
+              <button class="icon-btn" type="button" @click="closeSheet">×</button>
+            </div>
+          </div>
+
+          <div class="set-rows">
+            <div v-for="acc in draftAccounts" :key="acc.id" class="set-row">
+              <input v-model="acc.color" type="color" class="set-color" />
+              <input v-model="acc.name" class="set-row__name field-input" placeholder="Название" />
+              <div class="set-row__percent-wrap">
+                <input v-model.number="acc.percent" type="number" min="0" max="100" step="1" class="set-row__percent field-input" />
+                <span class="set-row__pct-sign">%</span>
+              </div>
+              <button class="set-del-btn" type="button" @click="removeAccount(acc.id)">×</button>
+            </div>
+          </div>
+
+          <div class="set-pct-bar">
+            <div v-for="acc in draftAccounts" :key="acc.id" class="set-pct-bar__seg"
+              :style="{ flex: acc.percent, background: acc.color }"
+              :title="acc.name + ': ' + acc.percent + '%'"></div>
+          </div>
+          <div class="set-pct-total" :class="percentTotal === 100 ? 'positive' : 'negative'">
+            {{ percentTotal === 100 ? '✔ 100%' : 'Сумма: ' + percentTotal + '% (должно быть 100%)' }}
+          </div>
+
+          <button class="primary-btn" type="button" :disabled="percentTotal !== 100" @click="saveAccounts">Сохранить счета</button>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ── Sheet: Categories ─────────────────────────────────────────── -->
+    <Teleport to="body">
+      <div class="sheet-backdrop" :class="{ open: activeSheet === 'categories' }" @click="closeSheet">
+        <div class="sheet" :class="{ open: activeSheet === 'categories' }" @click.stop ref="sheetCatEl">
+          <div class="sheet-handle" @touchstart.passive="dragStart($event, 'cat')" @touchmove.passive="dragMove($event, 'cat')" @touchend="dragEnd('cat')"></div>
+          <div class="sheet-head">
+            <div>
+              <h3>Категории</h3>
+              <p class="helper">Типы трат</p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="set-sheet-add" type="button" @click="addCategory">+ Кат.</button>
+              <button class="icon-btn" type="button" @click="closeSheet">×</button>
+            </div>
+          </div>
+
+          <div class="set-rows">
+            <div v-for="cat in draftCategories" :key="cat.id" class="set-row">
+              <input v-model="cat.color" type="color" class="set-color" />
+              <input v-model="cat.name" class="set-row__name field-input" placeholder="Название" />
+              <button class="set-del-btn" type="button" @click="removeCategory(cat.id)">×</button>
+            </div>
+          </div>
+
+          <button class="primary-btn" type="button" @click="saveCategories">Сохранить категории</button>
+        </div>
+      </div>
+    </Teleport>
 
   </section>
 </template>
@@ -118,24 +145,50 @@ import type { AccountRecord, CategoryRecord } from '../types/domain'
 const store = useBudgetStore()
 const COLORS = ['#8b6cff', '#7ce5e0', '#58d67b', '#ff9a5c', '#ff6d8a', '#5c89ff']
 
+const activeSheet = ref<'accounts' | 'categories' | null>(null)
+const sheetAccEl = ref<HTMLElement | null>(null)
+const sheetCatEl = ref<HTMLElement | null>(null)
+
+function openSheet(s: 'accounts' | 'categories') { activeSheet.value = s }
+function closeSheet() { activeSheet.value = null }
+
+// drag-to-close per sheet
+const dragState: Record<string, { startY: number; cur: number; going: boolean }> = {
+  acc: { startY: 0, cur: 0, going: false },
+  cat: { startY: 0, cur: 0, going: false }
+}
+function elOf(k: string) { return k === 'acc' ? sheetAccEl.value : sheetCatEl.value }
+function dragStart(e: TouchEvent, k: string) {
+  dragState[k].startY = e.touches[0].clientY
+  dragState[k].cur = 0
+  dragState[k].going = true
+  const el = elOf(k); if (el) el.style.transition = 'none'
+}
+function dragMove(e: TouchEvent, k: string) {
+  if (!dragState[k].going) return
+  dragState[k].cur = Math.max(0, e.touches[0].clientY - dragState[k].startY)
+  const el = elOf(k); if (el) el.style.transform = `translateY(${dragState[k].cur}px)`
+}
+function dragEnd(k: string) {
+  if (!dragState[k].going) return
+  dragState[k].going = false
+  const el = elOf(k); if (el) el.style.transition = ''
+  if (dragState[k].cur > 120) { closeSheet(); return }
+  const el2 = elOf(k); if (el2) el2.style.transform = ''
+}
+
+// drafts
 const draftAccounts = ref<AccountRecord[]>([])
 const draftCategories = ref<CategoryRecord[]>([])
-
-watch(() => store.accounts, (val) => { draftAccounts.value = val.map((a) => ({ ...a })) }, { immediate: true })
-watch(() => store.categories, (val) => { draftCategories.value = val.map((c) => ({ ...c })) }, { immediate: true })
+watch(() => store.accounts, (v) => { draftAccounts.value = v.map((a) => ({ ...a })) }, { immediate: true })
+watch(() => store.categories, (v) => { draftCategories.value = v.map((c) => ({ ...c })) }, { immediate: true })
 
 const percentTotal = computed(() =>
   draftAccounts.value.reduce((s, a) => s + Number(a.percent || 0), 0)
 )
 
 function addAccount() {
-  draftAccounts.value.push({
-    id: crypto.randomUUID(),
-    name: 'Новый счёт',
-    percent: 0,
-    color: COLORS[draftAccounts.value.length % COLORS.length],
-    archived: false
-  })
+  draftAccounts.value.push({ id: crypto.randomUUID(), name: 'Новый счёт', percent: 0, color: COLORS[draftAccounts.value.length % COLORS.length], archived: false })
 }
 function removeAccount(id: string) {
   if (draftAccounts.value.length <= 1) return
@@ -144,15 +197,11 @@ function removeAccount(id: string) {
 async function saveAccounts() {
   if (percentTotal.value !== 100) return
   await store.saveAccounts(draftAccounts.value)
+  closeSheet()
 }
 
 function addCategory() {
-  draftCategories.value.push({
-    id: crypto.randomUUID(),
-    name: 'Новая категория',
-    color: COLORS[draftCategories.value.length % COLORS.length],
-    archived: false
-  })
+  draftCategories.value.push({ id: crypto.randomUUID(), name: 'Новая категория', color: COLORS[draftCategories.value.length % COLORS.length], archived: false })
 }
 function removeCategory(id: string) {
   if (draftCategories.value.length <= 1) return
@@ -161,6 +210,7 @@ function removeCategory(id: string) {
 async function saveCategories() {
   if (draftCategories.value.some((c) => !c.name.trim())) return
   await store.saveCategories(draftCategories.value)
+  closeSheet()
 }
 
 async function downloadBackup() {
@@ -176,12 +226,7 @@ async function downloadBackup() {
 async function importBackup(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
-  try {
-    const text = await file.text()
-    await store.importData(text)
-  } catch {
-    alert('Ошибка импорта JSON — проверь формат файла')
-  }
+  try { await store.importData(await file.text()) } catch { alert('Ошибка импорта') }
   (e.target as HTMLInputElement).value = ''
 }
 async function reset() {
@@ -198,32 +243,73 @@ async function reset() {
   margin-bottom: var(--space-5);
 }
 
-/* ── Section ─────────────────────────────────────────────────────────── */
-.set-section {
+/* ── Group label ─────────────────────────────────────────────────── */
+.set-group-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--color-text-muted);
+  padding-left: var(--space-2);
+  margin-bottom: 8px;
+  margin-top: var(--space-4);
+}
+.set-group-label:first-of-type { margin-top: 0; }
+
+/* ── Group card ──────────────────────────────────────────────────── */
+.set-group {
   background: rgba(255,255,255,.04);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  margin-bottom: var(--space-4);
-  display: grid;
-  gap: var(--space-4);
+  overflow: hidden;
+  margin-bottom: var(--space-2);
 }
-.set-section__head {
+.set-group--danger {
+  background: rgba(255,109,138,.04);
+  border-color: rgba(255,109,138,.12);
+}
+.set-group__divider {
+  height: 1px;
+  background: rgba(255,255,255,.06);
+  margin: 0 var(--space-4);
+}
+
+/* ── Row button ──────────────────────────────────────────────────── */
+.set-row-btn {
+  width: 100%;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
   gap: var(--space-3);
+  padding: 14px var(--space-4);
+  text-align: left;
+  background: transparent;
+  border: none;
+  transition: background var(--transition);
 }
-.set-section__title {
-  font-size: 16px;
-  font-weight: 700;
+.set-row-btn:active { background: rgba(255,255,255,.06); }
+.set-row-btn--danger:active { background: rgba(255,109,138,.08); }
+.set-row-btn__icon { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; }
+.set-row-btn__text { flex: 1; min-width: 0; }
+.set-row-btn__title {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
 }
-.set-section__sub {
+.set-row-btn--danger .set-row-btn__title { color: var(--color-negative); }
+.set-row-btn__sub {
+  display: block;
   font-size: 12px;
   color: var(--color-text-muted);
   margin-top: 2px;
 }
-.set-add-btn {
+.set-row-btn__chevron {
+  font-size: 18px;
+  color: var(--color-text-faint);
+  flex-shrink: 0;
+}
+
+/* ── Sheet internals ──────────────────────────────────────────────── */
+.set-sheet-add {
   height: 32px;
   padding: 0 12px;
   border-radius: var(--radius-full);
@@ -233,107 +319,35 @@ async function reset() {
   font-weight: 600;
   color: var(--color-text);
   white-space: nowrap;
-  flex-shrink: 0;
   transition: background var(--transition);
 }
-.set-add-btn:active { background: rgba(255,255,255,.12); }
+.set-sheet-add:active { background: rgba(255,255,255,.12); }
 
-/* ── Rows ────────────────────────────────────────────────────────────── */
-.set-rows { display: grid; gap: var(--space-2); }
-.set-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
+.set-rows { display: grid; gap: var(--space-2); margin-bottom: var(--space-3); }
+.set-row { display: flex; align-items: center; gap: var(--space-2); }
 .set-color {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  padding: 2px;
-  background: transparent;
-  cursor: pointer;
-  flex-shrink: 0;
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border); padding: 2px;
+  background: transparent; cursor: pointer; flex-shrink: 0;
 }
-.set-row__name {
-  flex: 1;
-  min-width: 0;
-}
-.set-row__percent-wrap {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-.set-row__percent {
-  width: 58px;
-  text-align: right;
-}
-.set-row__pct-sign {
-  font-size: 13px;
-  color: var(--color-text-muted);
-}
+.set-row__name { flex: 1; min-width: 0; }
+.set-row__percent-wrap { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.set-row__percent { width: 58px; text-align: right; }
+.set-row__pct-sign { font-size: 13px; color: var(--color-text-muted); }
 .set-del-btn {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-sm);
-  background: rgba(255,109,138,.08);
-  border: 1px solid rgba(255,109,138,.15);
-  color: var(--color-negative);
-  font-size: 16px;
-  flex-shrink: 0;
+  width: 30px; height: 30px; border-radius: var(--radius-sm);
+  background: rgba(255,109,138,.08); border: 1px solid rgba(255,109,138,.15);
+  color: var(--color-negative); font-size: 16px; flex-shrink: 0;
   transition: background var(--transition);
 }
 .set-del-btn:active { background: rgba(255,109,138,.2); }
 
-/* ── Percent bar ──────────────────────────────────────────────────── */
 .set-pct-bar {
-  display: flex;
-  height: 6px;
-  border-radius: var(--radius-full);
-  overflow: hidden;
-  gap: 2px;
+  display: flex; height: 6px; border-radius: var(--radius-full);
+  overflow: hidden; gap: 2px; margin-bottom: 8px;
 }
-.set-pct-bar__seg {
-  border-radius: var(--radius-full);
-  transition: flex .3s ease;
-  min-width: 4px;
-}
-.set-pct-total {
-  font-size: 12px;
-  font-weight: 600;
-  margin-top: -8px;
-}
+.set-pct-bar__seg { border-radius: var(--radius-full); transition: flex .3s ease; min-width: 4px; }
+.set-pct-total { font-size: 12px; font-weight: 600; margin-bottom: var(--space-4); }
 .positive { color: var(--color-positive); }
 .negative { color: var(--color-negative); }
-
-/* ── Data buttons ──────────────────────────────────────────────────── */
-.set-data-btns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-}
-.set-data-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  background: rgba(255,255,255,.04);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  text-align: left;
-  transition: background var(--transition);
-}
-.set-data-btn:active { background: rgba(255,255,255,.09); }
-.set-data-btn__icon { font-size: 22px; flex-shrink: 0; }
-.set-data-btn__title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-.set-data-btn__sub {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  margin-top: 2px;
-}
 </style>
