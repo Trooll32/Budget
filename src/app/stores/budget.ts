@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { db } from '../db/client'
-import { ensureCurrentMonth, seedDefaults, resetAllData } from '../db/bootstrap'
+import { ensureCurrentMonth, seedDefaults, resetAllData, monthIdFromDate } from '../db/bootstrap'
 import type { AccountRecord, CategoryRecord, ExpenseEntry, IncomeEntry, MonthRecord, Totals } from '../../types/domain'
 
 export const useBudgetStore = defineStore('budget', {
@@ -17,6 +17,16 @@ export const useBudgetStore = defineStore('budget', {
   getters: {
     activeMonthLabel(state) {
       return state.months.find((item) => item.id === state.activeMonthId)?.label ?? 'Месяц'
+    },
+
+    /** ID текущего календарного месяца */
+    currentMonthId(): string {
+      return monthIdFromDate(new Date())
+    },
+
+    /** Активный месяц — текущий? */
+    isCurrentMonth(state): boolean {
+      return state.activeMonthId === monthIdFromDate(new Date())
     },
 
     totals(state): Totals {
@@ -49,7 +59,6 @@ export const useBudgetStore = defineStore('budget', {
       }
     },
 
-    // Shorthand getters for convenience
     totalIncome(): number { return this.totals.totalIncome },
     totalExpense(): number { return this.totals.totalExpense },
     balance(): number { return this.totals.freeCash }
@@ -73,12 +82,15 @@ export const useBudgetStore = defineStore('budget', {
     },
 
     async switchMonth(monthId: string) {
+      // Запрещаем переключаться на будущий месяц
+      if (monthId > monthIdFromDate(new Date())) return
       this.activeMonthId = monthId
       await this.reloadAll()
     },
 
-    // ─── Income ───────────────────────────────────────────────────────────────
+    // ── Income ──────────────────────────────────────────────────────────────
     async createIncome(payload: { source: string; amount: number; date: string; note: string }) {
+      if (!this.isCurrentMonth) throw new Error('READ_ONLY_MONTH')
       await db.incomes.add({
         id: crypto.randomUUID(),
         monthId: this.activeMonthId,
@@ -92,12 +104,14 @@ export const useBudgetStore = defineStore('budget', {
     },
 
     async deleteIncome(id: string) {
+      if (!this.isCurrentMonth) throw new Error('READ_ONLY_MONTH')
       await db.incomes.delete(id)
       await this.reloadAll()
     },
 
-    // ─── Expenses ─────────────────────────────────────────────────────────────
+    // ── Expenses ────────────────────────────────────────────────────────────
     async createExpense(payload: { accountId: string; categoryId: string; amount: number; date: string; note: string }) {
+      if (!this.isCurrentMonth) throw new Error('READ_ONLY_MONTH')
       await db.expenses.add({
         id: crypto.randomUUID(),
         monthId: this.activeMonthId,
@@ -112,6 +126,7 @@ export const useBudgetStore = defineStore('budget', {
     },
 
     async updateExpense(id: string, payload: { accountId: string; categoryId: string; amount: number; date: string; note: string }) {
+      if (!this.isCurrentMonth) throw new Error('READ_ONLY_MONTH')
       await db.expenses.update(id, {
         accountId: payload.accountId,
         categoryId: payload.categoryId,
@@ -123,11 +138,12 @@ export const useBudgetStore = defineStore('budget', {
     },
 
     async deleteExpense(id: string) {
+      if (!this.isCurrentMonth) throw new Error('READ_ONLY_MONTH')
       await db.expenses.delete(id)
       await this.reloadAll()
     },
 
-    // ─── Accounts ─────────────────────────────────────────────────────────────
+    // ── Accounts ────────────────────────────────────────────────────────────
     async saveAccounts(accounts: AccountRecord[]) {
       await db.transaction('rw', db.accounts, async () => {
         const existing = await db.accounts.toArray()
@@ -144,7 +160,7 @@ export const useBudgetStore = defineStore('budget', {
       await this.reloadAll()
     },
 
-    // ─── Categories ───────────────────────────────────────────────────────────
+    // ── Categories ───────────────────────────────────────────────────────────
     async saveCategories(categories: CategoryRecord[]) {
       await db.transaction('rw', db.categories, async () => {
         const existing = await db.categories.toArray()
@@ -161,7 +177,7 @@ export const useBudgetStore = defineStore('budget', {
       await this.reloadAll()
     },
 
-    // ─── Import / Export / Reset ──────────────────────────────────────────────
+    // ── Import / Export / Reset ─────────────────────────────────────────────
     async exportData() {
       const data = {
         months: await db.months.toArray(),
