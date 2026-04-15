@@ -9,11 +9,7 @@
       <div class="login-logo"></div>
       <h1 class="login-title">Budget</h1>
       <p class="login-sub">Семейный бюджет</p>
-
-      <div v-if="authStore.error" class="login-error">
-        {{ authStore.error }}
-      </div>
-
+      <div v-if="authStore.error" class="login-error">{{ authStore.error }}</div>
       <button class="google-btn" @click="login" :disabled="loggingIn">
         <svg width="20" height="20" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -23,7 +19,6 @@
         </svg>
         {{ loggingIn ? 'Переход на Google...' : 'Войти через Google' }}
       </button>
-
       <p class="login-hint">Войдите с одного аккаунта, чтобы данные были общими</p>
     </div>
   </div>
@@ -49,8 +44,17 @@
       <AnalyticsPage v-else-if="tab === 'analytics'" />
       <SettingsPage v-else />
     </main>
+
+    <!-- Дебаг: показываем ошибку если есть -->
+    <div v-else-if="budgetError" class="content-error">
+      <p class="error-title">Ошибка загрузки</p>
+      <p class="error-msg">{{ budgetError }}</p>
+      <button class="retry-btn" @click="retryBudget">Повторить</button>
+    </div>
+
     <div v-else class="content-loading">
       <div class="splash-spinner"></div>
+      <p class="loading-label">uid: {{ authStore.uid?.slice(0,8) }}</p>
     </div>
 
     <nav class="tabbar">
@@ -87,22 +91,37 @@ const tab = ref<'dashboard' | 'incomes' | 'expenses' | 'analytics' | 'settings'>
 const expenseSheetOpen = ref(false)
 const editingExpenseId = ref<string | null>(null)
 const loggingIn = ref(false)
+const budgetError = ref('')
+
+async function initBudget() {
+  budgetError.value = ''
+  try {
+    await budgetStore.init()
+  } catch (e: any) {
+    budgetError.value = e?.message ?? String(e)
+    console.error('budgetStore.init error:', e)
+  }
+}
+
+async function retryBudget() {
+  budgetStore.ready = false
+  await initBudget()
+}
 
 onMounted(async () => {
   await authStore.init()
-  if (authStore.isLoggedIn) await budgetStore.init()
+  if (authStore.isLoggedIn) await initBudget()
 })
 
-// После popup-авторизации uid меняется null → string
-// инициализируем budgetStore если ещё не готов
- watch(
+watch(
   () => authStore.uid,
   async (uid) => {
     if (uid && !budgetStore.ready) {
-      await budgetStore.init()
+      await initBudget()
     }
     if (!uid) {
       budgetStore.ready = false
+      budgetError.value = ''
     }
   }
 )
@@ -134,9 +153,46 @@ provide('openAddExpense', openAddExpense)
 .splash-text { font-size: 14px; color: var(--color-text-muted); }
 .content-loading {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 12px;
   min-height: 60dvh;
+}
+.loading-label {
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--color-text-faint);
+}
+.content-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 60dvh;
+  padding: 24px;
+  text-align: center;
+}
+.error-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-negative);
+}
+.error-msg {
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--color-text-muted);
+  word-break: break-all;
+  max-width: 320px;
+}
+.retry-btn {
+  padding: 10px 24px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
 }
 .splash-spinner {
   width: 36px; height: 36px;
