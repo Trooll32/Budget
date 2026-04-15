@@ -1,13 +1,13 @@
 <template>
   <section class="page">
 
-    <!-- ── Large title row ─────────────────────────────────────────── -->
+    <!-- Large title row -->
     <div class="exp-header">
       <h1 class="exp-title">Траты</h1>
       <button class="exp-add-btn" type="button" @click="openAdd">+ Трата</button>
     </div>
 
-    <!-- ── Summary strip ─────────────────────────────────────────── -->
+    <!-- Summary strip -->
     <div v-if="sorted.length" class="exp-summary">
       <div class="exp-summary__item">
         <div class="exp-summary__label">Трат за месяц</div>
@@ -25,7 +25,7 @@
       </div>
     </div>
 
-    <!-- ── Empty state ────────────────────────────────────────────── -->
+    <!-- Empty state -->
     <div v-if="!sorted.length" class="exp-empty">
       <div class="exp-empty__icon">💳</div>
       <div class="exp-empty__title">Нет трат</div>
@@ -33,37 +33,25 @@
       <button class="primary-btn" style="margin-top:var(--space-4);max-width:220px;" @click="openAdd">+ Добавить</button>
     </div>
 
-    <!-- ── Expenses list ───────────────────────────────────────────── -->
+    <!-- Expenses list -->
     <div v-else class="exp-list">
-      <div
-        v-for="item in sorted"
-        :key="item.id"
-        class="exp-item"
-        :class="{ 'exp-item--swiped': swipedId === item.id }"
-        @touchstart.passive="swipeStart($event, item.id)"
-        @touchmove.passive="swipeMove"
-        @touchend="swipeEnd"
-      >
-        <!-- Main row -->
-        <div class="exp-item__main">
+      <div v-for="item in sorted" :key="item.id" class="exp-item">
+        <div class="exp-item__left">
           <div class="exp-item__cat-dot" :style="{ background: categoryColor(item.categoryId) }"></div>
           <div class="exp-item__body">
             <div class="exp-item__title">{{ item.note || 'Трата' }}</div>
             <div class="exp-item__meta">
               {{ accountName(item.accountId) }}
               <span class="exp-item__sep">·</span>
-              <span class="exp-item__cat">{{ categoryName(item.categoryId) }}</span>
+              {{ categoryName(item.categoryId) }}
               <span class="exp-item__sep">·</span>
               {{ formatDate(item.date) }}
             </div>
           </div>
-          <div class="exp-item__amount">−{{ formatMoney(item.amount) }}</div>
         </div>
-
-        <!-- Swipe actions (revealed on swipe left) -->
-        <div class="exp-item__actions">
-          <button class="exp-action exp-action--edit" @click.stop="openEdit(item.id)">⚙️ Изм.</button>
-          <button class="exp-action exp-action--del" @click.stop="deleteItem(item.id)">🗑 Удал.</button>
+        <div class="exp-item__right">
+          <div class="exp-item__amount">−{{ formatMoney(item.amount) }}</div>
+          <button class="exp-item__edit-btn" type="button" @click="openEdit(item.id)">Изменить</button>
         </div>
       </div>
     </div>
@@ -72,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, inject } from 'vue'
 import { useBudgetStore } from '../app/stores/budget'
 import { useMoney } from '../composables/useMoney'
 
@@ -81,8 +69,6 @@ const { formatMoney, formatDate } = useMoney()
 
 const openAddExpense = inject<() => void>('openAddExpense')
 const openEditExpense = inject<(id: string) => void>('openEditExpense')
-
-import { inject } from 'vue'
 
 const sorted = computed(() =>
   [...store.expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -103,51 +89,9 @@ function categoryColor(id: string) {
 
 function openAdd() { openAddExpense?.() }
 function openEdit(id: string) { openEditExpense?.(id) }
-
-async function deleteItem(id: string) {
-  swipedId.value = null
-  await store.deleteExpense(id)
-}
-
-// ── Swipe to reveal actions ──────────────────────────────────────────
-const swipedId = ref<string | null>(null)
-let swipeStartX = 0
-let swipeStartY = 0
-let swipeLocked = false
-
-function swipeStart(e: TouchEvent, id: string) {
-  swipeStartX = e.touches[0].clientX
-  swipeStartY = e.touches[0].clientY
-  swipeLocked = false
-  // close others
-  if (swipedId.value && swipedId.value !== id) swipedId.value = null
-}
-function swipeMove(e: TouchEvent) {
-  if (swipeLocked) return
-  const dx = e.touches[0].clientX - swipeStartX
-  const dy = e.touches[0].clientY - swipeStartY
-  if (Math.abs(dy) > Math.abs(dx)) { swipeLocked = true }
-}
-function swipeEnd(e: TouchEvent) {
-  if (swipeLocked) return
-  const dx = e.changedTouches[0].clientX - swipeStartX
-  const id = (e.currentTarget as HTMLElement).dataset.id as string
-  const itemId = sorted.value.find((_, i) =>
-    (e.currentTarget as HTMLElement) === document.querySelectorAll('.exp-item')[i]
-  )?.id
-  if (dx < -40) {
-    // find id from element
-    const el = e.currentTarget as HTMLElement
-    const foundId = sorted.value[Array.from(document.querySelectorAll('.exp-item')).indexOf(el)]?.id
-    if (foundId) swipedId.value = foundId
-  } else if (dx > 20) {
-    swipedId.value = null
-  }
-}
 </script>
 
 <style scoped>
-/* ── Header ─────────────────────────────────────────────────────────── */
 .exp-header {
   display: flex;
   align-items: center;
@@ -175,7 +119,6 @@ function swipeEnd(e: TouchEvent) {
 }
 .exp-add-btn:active { background: rgba(255,255,255,.12); }
 
-/* ── Summary strip ────────────────────────────────────────────────── */
 .exp-summary {
   display: flex;
   align-items: center;
@@ -186,10 +129,7 @@ function swipeEnd(e: TouchEvent) {
   padding: var(--space-4);
   margin-bottom: var(--space-4);
 }
-.exp-summary__item {
-  flex: 1;
-  text-align: center;
-}
+.exp-summary__item { flex: 1; text-align: center; }
 .exp-summary__label {
   font-size: 11px;
   text-transform: uppercase;
@@ -209,7 +149,6 @@ function swipeEnd(e: TouchEvent) {
   flex-shrink: 0;
 }
 
-/* ── Empty state ───────────────────────────────────────────────────── */
 .exp-empty {
   display: flex;
   flex-direction: column;
@@ -222,42 +161,36 @@ function swipeEnd(e: TouchEvent) {
 .exp-empty__title { font-size: 18px; font-weight: 700; }
 .exp-empty__sub { font-size: 14px; color: var(--color-text-muted); }
 
-/* ── List ────────────────────────────────────────────────────────────── */
 .exp-list {
   display: grid;
   gap: var(--space-3);
   padding-bottom: var(--space-6);
 }
 
-/* ── Swipe item ──────────────────────────────────────────────────────── */
 .exp-item {
-  position: relative;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
   background: rgba(255,255,255,.04);
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
   box-shadow: 0 4px 14px rgba(0,0,0,.18);
 }
-.exp-item__main {
+.exp-item__left {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-4);
-  position: relative;
-  z-index: 1;
-  background: rgba(255,255,255,.04);
-  transition: transform .22s cubic-bezier(.16,1,.3,1);
-}
-.exp-item--swiped .exp-item__main {
-  transform: translateX(-130px);
+  flex: 1;
+  min-width: 0;
 }
 .exp-item__cat-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
-  margin-top: 2px;
-  align-self: flex-start;
+  margin-top: 3px;
 }
 .exp-item__body { flex: 1; min-width: 0; }
 .exp-item__title {
@@ -277,8 +210,13 @@ function swipeEnd(e: TouchEvent) {
   flex-wrap: wrap;
 }
 .exp-item__sep { opacity: .4; }
-.exp-item__cat {
-  color: var(--color-text-muted);
+
+.exp-item__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .exp-item__amount {
   font-size: 15px;
@@ -286,43 +224,21 @@ function swipeEnd(e: TouchEvent) {
   font-variant-numeric: tabular-nums;
   color: var(--color-negative);
   white-space: nowrap;
-  flex-shrink: 0;
 }
-
-/* ── Swipe action buttons ──────────────────────────────────────────── */
-.exp-item__actions {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  align-items: stretch;
-  z-index: 0;
-}
-.exp-action {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
+.exp-item__edit-btn {
   font-size: 11px;
-  font-weight: 600;
-  gap: 4px;
-  flex-direction: column;
-  border: none;
-  cursor: pointer;
-  transition: opacity var(--transition);
+  color: var(--color-text-faint);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255,255,255,.08);
+  background: transparent;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
 }
-.exp-action--edit {
-  background: rgba(139,108,255,.18);
+.exp-item__edit-btn:active {
   color: var(--color-primary-2);
+  border-color: rgba(139,108,255,.3);
+  background: rgba(139,108,255,.08);
 }
-.exp-action--del {
-  background: rgba(255,109,138,.18);
-  color: var(--color-negative);
-}
-.exp-action:active { opacity: .7; }
 
-/* ── Colors ─────────────────────────────────────────────────────────── */
 .negative { color: var(--color-negative); }
-.positive { color: var(--color-positive); }
 </style>
