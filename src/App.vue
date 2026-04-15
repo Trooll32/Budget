@@ -23,7 +23,7 @@
       <button :class="['tab-btn', { active: tab === 'incomes' }]" @click="tab = 'incomes'">Доходы</button>
       <button class="tab-btn tab-add" @click="openAddExpense">+</button>
       <button :class="['tab-btn', { active: tab === 'expenses' }]" @click="tab = 'expenses'">Траты</button>
-      <button :class="['tab-btn', { active: tab === 'settings' }]" @click="tab = 'settings'">Ещё</button>
+      <button :class="['tab-btn', { active: tab === 'settings' }]" @click="tab = 'settings'">Настройки</button>
     </nav>
   </div>
 
@@ -65,7 +65,6 @@ function closeExpenseSheet() {
   editingExpenseId.value = null
 }
 
-// Provide so child pages can trigger the global expense sheet
 provide('openEditExpense', openEditExpense)
 provide('openAddExpense', openAddExpense)
 </script>
