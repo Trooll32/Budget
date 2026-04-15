@@ -862,8 +862,14 @@
         const cat = state.categories.find(c => c.id === row.dataset.categoryId);
         if (!cat) return;
         const field = e.target.dataset.field;
-        cat[field] = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
-        renderCategoryEditor();
+        if (e.target.type === 'number') {
+          cat[field] = e.target.value === '' ? '' : Number(e.target.value);
+        } else {
+          cat[field] = e.target.value;
+        }
+        const sum = state.categories.reduce((s,c) => s + Number(c.percent || 0), 0);
+        els.percentSum.textContent = `${sum}%`;
+        els.percentSum.className = sum === 100 ? 'success' : 'negative';
       });
       els.categoryEditor.addEventListener('click', e => {
         const btn = e.target.closest('[data-remove-category]');
