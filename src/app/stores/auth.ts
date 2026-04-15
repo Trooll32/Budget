@@ -11,10 +11,17 @@ import {
 import type { User } from 'firebase/auth'
 import { auth, googleProvider } from '../firebase'
 
-// Safari ITP блокирует cookies при cross-site redirect
-// На desktop Safari работает popup, на iOS нужен redirect
-function isMobileIOS(): boolean {
+function isIOS(): boolean {
   return /iphone|ipad|ipod/i.test(navigator.userAgent)
+}
+
+// iOS PWA standalone — добавлено на домашний экран
+ function isIOSStandalone(): boolean {
+  return isIOS() && (window.navigator as any).standalone === true
+}
+
+function isDesktop(): boolean {
+  return !/iphone|ipad|ipod|android/i.test(navigator.userAgent)
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -36,29 +43,29 @@ export const useAuthStore = defineStore('auth', {
     async init(): Promise<void> {
       this.error = ''
 
-      // Устанавливаем localStorage персистенцию — сессия живёт между редиректами
       try {
         await setPersistence(auth, browserLocalPersistence)
       } catch (e) {
         console.warn('setPersistence failed:', e)
       }
 
-      // Проверяем результат редиректа (iOS)
-      try {
-        const result = await getRedirectResult(auth)
-        if (result?.user) {
-          this.user = result.user
-          this.ready = true
-          return
-        }
-      } catch (e: any) {
-        console.error('getRedirectResult error:', e)
-        if (e?.code && e.code !== 'auth/no-auth-event') {
-          this.error = e.message ?? 'Ошибка: ' + (e.code ?? '')
+      // Проверяем redirect результат только если не iOS standalone
+      if (!isIOSStandalone()) {
+        try {
+          const result = await getRedirectResult(auth)
+          if (result?.user) {
+            this.user = result.user
+            this.ready = true
+            return
+          }
+        } catch (e: any) {
+          console.error('getRedirectResult error:', e)
+          if (e?.code && e.code !== 'auth/no-auth-event') {
+            this.error = e.message ?? 'Ошибка: ' + (e.code ?? '')
+          }
         }
       }
 
-      // Обычная проверка сессии
       await new Promise<void>((resolve) => {
         const unsub = onAuthStateChanged(auth, (user) => {
           this.user = user
@@ -71,36 +78,50 @@ export const useAuthStore = defineStore('auth', {
 
     async loginWithGoogle() {
       this.error = ''
+
       try {
         await setPersistence(auth, browserLocalPersistence)
       } catch (e) {
         console.warn('setPersistence failed:', e)
       }
 
-      if (isMobileIOS()) {
-        // iOS Safari: только redirect
-        this.redirectPending = true
-        try {
-          await signInWithRedirect(auth, googleProvider)
-        } catch (e: any) {
-          this.redirectPending = false
-          this.error = e.message ?? 'Ошибка входа'
-        }
-      } else {
-        // Desktop Safari / Chrome: popup — надёжнее
+      if (isDesktop()) {
+        // Desktop: popup — самый надёжный
         try {
           const result = await signInWithPopup(auth, googleProvider)
           this.user = result.user
+          return
         } catch (e: any) {
-          // Если popup заблокирован — фаллбэк на redirect
-          if (e?.code === 'auth/popup-blocked' || e?.code === 'auth/popup-closed-by-user') {
-            this.redirectPending = true
-            await signInWithRedirect(auth, googleProvider)
-          } else {
-            this.error = e.message ?? 'Ошибка входа: ' + (e.code ?? '')
-            console.error('signInWithPopup error:', e)
+          if (e?.code !== 'auth/popup-blocked' && e?.code !== 'auth/popup-closed-by-user') {
+            this.error = e.message ?? 'Ошибка: ' + (e.code ?? '')
+            return
+          }
+          // popup заблокирован — фаллбэк на redirect
+        }
+      }
+
+      if (isIOSStandalone()) {
+        // iOS PWA standalone: popup через window.open —
+        // открывается в SFSafariViewController и не теряет сессию PWA
+        try {
+          const result = await signInWithPopup(auth, googleProvider)
+          this.user = result.user
+          return
+        } catch (e: any) {
+          if (e?.code !== 'auth/popup-blocked' && e?.code !== 'auth/popup-closed-by-user') {
+            this.error = e.message ?? 'Ошибка: ' + (e.code ?? '')
+            return
           }
         }
+      }
+
+      // iOS Safari браузер (Android) — redirect
+      this.redirectPending = true
+      try {
+        await signInWithRedirect(auth, googleProvider)
+      } catch (e: any) {
+        this.redirectPending = false
+        this.error = e.message ?? 'Ошибка входа'
       }
     },
 
