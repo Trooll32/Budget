@@ -1,12 +1,21 @@
 import { defineStore } from 'pinia'
 import {
+  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  browserLocalPersistence,
+  setPersistence
 } from 'firebase/auth'
 import type { User } from 'firebase/auth'
 import { auth, googleProvider } from '../firebase'
+
+// Safari ITP блокирует cookies при cross-site redirect
+// На desktop Safari работает popup, на iOS нужен redirect
+function isMobileIOS(): boolean {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent)
+}
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -27,22 +36,29 @@ export const useAuthStore = defineStore('auth', {
     async init(): Promise<void> {
       this.error = ''
 
-      // Сначала обрабатываем результат редиректа — это должно быть первым
+      // Устанавливаем localStorage персистенцию — сессия живёт между редиректами
+      try {
+        await setPersistence(auth, browserLocalPersistence)
+      } catch (e) {
+        console.warn('setPersistence failed:', e)
+      }
+
+      // Проверяем результат редиректа (iOS)
       try {
         const result = await getRedirectResult(auth)
         if (result?.user) {
           this.user = result.user
           this.ready = true
-          return  // уже авторизован, выходим
+          return
         }
       } catch (e: any) {
         console.error('getRedirectResult error:', e)
         if (e?.code && e.code !== 'auth/no-auth-event') {
-          this.error = e.message ?? 'Ошибка авторизации: ' + (e.code ?? '')
+          this.error = e.message ?? 'Ошибка: ' + (e.code ?? '')
         }
       }
 
-      // Если редиректа не было — проверяем сессию через onAuthStateChanged
+      // Обычная проверка сессии
       await new Promise<void>((resolve) => {
         const unsub = onAuthStateChanged(auth, (user) => {
           this.user = user
@@ -55,13 +71,36 @@ export const useAuthStore = defineStore('auth', {
 
     async loginWithGoogle() {
       this.error = ''
-      this.redirectPending = true
       try {
-        await signInWithRedirect(auth, googleProvider)
-      } catch (e: any) {
-        this.redirectPending = false
-        this.error = e.message ?? 'Не удалось запустить вход'
-        console.error('signInWithRedirect error:', e)
+        await setPersistence(auth, browserLocalPersistence)
+      } catch (e) {
+        console.warn('setPersistence failed:', e)
+      }
+
+      if (isMobileIOS()) {
+        // iOS Safari: только redirect
+        this.redirectPending = true
+        try {
+          await signInWithRedirect(auth, googleProvider)
+        } catch (e: any) {
+          this.redirectPending = false
+          this.error = e.message ?? 'Ошибка входа'
+        }
+      } else {
+        // Desktop Safari / Chrome: popup — надёжнее
+        try {
+          const result = await signInWithPopup(auth, googleProvider)
+          this.user = result.user
+        } catch (e: any) {
+          // Если popup заблокирован — фаллбэк на redirect
+          if (e?.code === 'auth/popup-blocked' || e?.code === 'auth/popup-closed-by-user') {
+            this.redirectPending = true
+            await signInWithRedirect(auth, googleProvider)
+          } else {
+            this.error = e.message ?? 'Ошибка входа: ' + (e.code ?? '')
+            console.error('signInWithPopup error:', e)
+          }
+        }
       }
     },
 
