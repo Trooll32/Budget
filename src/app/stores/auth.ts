@@ -1,12 +1,18 @@
 import { defineStore } from 'pinia'
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth'
+import {
+  signInWithRedirect,
+  getRedirectResult,
+  signOut,
+  onAuthStateChanged
+} from 'firebase/auth'
 import type { User } from 'firebase/auth'
 import { auth, googleProvider } from '../firebase'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null as User | null,
-    ready: false
+    ready: false,
+    redirectPending: false
   }),
 
   getters: {
@@ -17,19 +23,33 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    init(): Promise<void> {
+    async init(): Promise<void> {
+      // Сначала проверяем результат редиректа если есть
+      try {
+        const result = await getRedirectResult(auth)
+        if (result?.user) {
+          this.user = result.user
+        }
+      } catch (e) {
+        console.error('Redirect result error:', e)
+      }
+
+      // Потом подписываемся на статус авторизации
       return new Promise((resolve) => {
-        onAuthStateChanged(auth, (user) => {
+        const unsub = onAuthStateChanged(auth, (user) => {
           this.user = user
           this.ready = true
+          unsub()
           resolve()
         })
       })
     },
 
     async loginWithGoogle() {
-      const result = await signInWithPopup(auth, googleProvider)
-      this.user = result.user
+      // Редирект — работает везде: WebView, Safari, GitLab Pages
+      this.redirectPending = true
+      await signInWithRedirect(auth, googleProvider)
+      // Страница перезагрузится после возвращения с Google
     },
 
     async logout() {

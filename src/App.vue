@@ -2,12 +2,13 @@
   <!-- Загрузка пока Firebase проверяет сессию -->
   <div v-if="!authStore.ready" class="splash">
     <div class="splash-spinner"></div>
+    <p class="splash-text" v-if="authStore.redirectPending">Входим...</p>
   </div>
 
   <!-- Экран входа -->
   <div v-else-if="!authStore.isLoggedIn" class="login-screen">
     <div class="login-card">
-      <div class="brand-logo"></div>
+      <div class="login-logo"></div>
       <h1 class="login-title">Budget</h1>
       <p class="login-sub">Семейный бюджет</p>
       <button class="google-btn" @click="login" :disabled="loggingIn">
@@ -17,9 +18,9 @@
           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
         </svg>
-        {{ loggingIn ? 'Вход...' : 'Войти через Google' }}
+        {{ loggingIn ? 'Переход на Google...' : 'Войти через Google' }}
       </button>
-      <p class="login-hint">Войдите с одного аккаунта чтобы данные синхронизировались</p>
+      <p class="login-hint">Войдите с одного аккаунта, чтобы данные были общими</p>
     </div>
   </div>
 
@@ -85,20 +86,15 @@ const editingExpenseId = ref<string | null>(null)
 const loggingIn = ref(false)
 
 onMounted(async () => {
-  // 1. Ждём пока Firebase определит сессию
   await authStore.init()
-  // 2. Если уже авторизован — грузим данные
   if (authStore.isLoggedIn) await budgetStore.init()
 })
 
 async function login() {
   loggingIn.value = true
-  try {
-    await authStore.loginWithGoogle()
-    await budgetStore.init()
-  } finally {
-    loggingIn.value = false
-  }
+  // loginWithGoogle() запускает редирект — страница уйдёт на Google
+  // loggingIn останется true до ухода
+  await authStore.loginWithGoogle()
 }
 
 function openAddExpense() { editingExpenseId.value = null; expenseSheetOpen.value = true }
@@ -110,13 +106,18 @@ provide('openAddExpense', openAddExpense)
 </script>
 
 <style scoped>
-/* ── Splash ────────────────────────────────────────── */
 .splash {
   min-height: 100dvh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 16px;
   background: var(--color-bg);
+}
+.splash-text {
+  font-size: 14px;
+  color: var(--color-text-muted);
 }
 .content-loading {
   display: flex;
@@ -133,7 +134,6 @@ provide('openAddExpense', openAddExpense)
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Login ────────────────────────────────────────── */
 .login-screen {
   min-height: 100dvh;
   display: flex;
@@ -151,7 +151,7 @@ provide('openAddExpense', openAddExpense)
   gap: 16px;
   text-align: center;
 }
-.brand-logo {
+.login-logo {
   width: 56px; height: 56px;
   border-radius: 18px;
   background: linear-gradient(180deg, var(--color-primary-2), var(--color-primary));
@@ -186,15 +186,13 @@ provide('openAddExpense', openAddExpense)
   margin-top: 8px;
 }
 .google-btn:active { background: rgba(255,255,255,.1); }
-.google-btn:disabled { opacity: .5; }
+.google-btn:disabled { opacity: .6; }
 .login-hint {
   font-size: 12px;
   color: var(--color-text-faint);
   max-width: 28ch;
   line-height: 1.5;
 }
-
-/* ── User avatar ───────────────────────────────────── */
 .topbar-user { margin-left: auto; }
 .user-avatar {
   width: 32px; height: 32px;
