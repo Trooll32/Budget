@@ -22,15 +22,13 @@ function makeMonthRecord(date: Date): MonthRecord {
   }
 }
 
-// Начало истории — меняй по необходимости
-const START_YEAR = 2024
+const START_YEAR = 2026
 const START_MONTH = 1
 
 export async function ensureCurrentMonth(): Promise<string> {
   const now = new Date()
   const currentId = monthIdFromDate(now)
 
-  // Всегда создаём все месяцы от START_YEAR/START_MONTH до сегодняшнего
   const cursor = new Date(START_YEAR, START_MONTH - 1, 1)
   const end = new Date(now.getFullYear(), now.getMonth(), 1)
 
