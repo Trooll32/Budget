@@ -12,7 +12,8 @@ export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null as User | null,
     ready: false,
-    redirectPending: false
+    redirectPending: false,
+    error: '' as string
   }),
 
   getters: {
@@ -24,17 +25,20 @@ export const useAuthStore = defineStore('auth', {
 
   actions: {
     async init(): Promise<void> {
-      // Сначала проверяем результат редиректа если есть
+      this.error = ''
       try {
         const result = await getRedirectResult(auth)
         if (result?.user) {
           this.user = result.user
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error('Redirect result error:', e)
+        // Не показываем ошибку redirect если пользователь просто открыл страницу без редиректа
+        if (e?.code && e.code !== 'auth/no-auth-event') {
+          this.error = e.message ?? 'Ошибка авторизации'
+        }
       }
 
-      // Потом подписываемся на статус авторизации
       return new Promise((resolve) => {
         const unsub = onAuthStateChanged(auth, (user) => {
           this.user = user
@@ -46,10 +50,15 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async loginWithGoogle() {
-      // Редирект — работает везде: WebView, Safari, GitLab Pages
+      this.error = ''
       this.redirectPending = true
-      await signInWithRedirect(auth, googleProvider)
-      // Страница перезагрузится после возвращения с Google
+      try {
+        await signInWithRedirect(auth, googleProvider)
+      } catch (e: any) {
+        this.redirectPending = false
+        this.error = e.message ?? 'Не удалось запустить вход'
+        console.error('signInWithRedirect error:', e)
+      }
     },
 
     async logout() {

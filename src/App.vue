@@ -1,16 +1,19 @@
 <template>
-  <!-- Загрузка пока Firebase проверяет сессию -->
   <div v-if="!authStore.ready" class="splash">
     <div class="splash-spinner"></div>
-    <p class="splash-text" v-if="authStore.redirectPending">Входим...</p>
+    <p class="splash-text" v-if="authStore.redirectPending">Возвращаемся...</p>
   </div>
 
-  <!-- Экран входа -->
   <div v-else-if="!authStore.isLoggedIn" class="login-screen">
     <div class="login-card">
       <div class="login-logo"></div>
       <h1 class="login-title">Budget</h1>
       <p class="login-sub">Семейный бюджет</p>
+
+      <div v-if="authStore.error" class="login-error">
+        {{ authStore.error }}
+      </div>
+
       <button class="google-btn" @click="login" :disabled="loggingIn">
         <svg width="20" height="20" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -20,11 +23,12 @@
         </svg>
         {{ loggingIn ? 'Переход на Google...' : 'Войти через Google' }}
       </button>
+
       <p class="login-hint">Войдите с одного аккаунта, чтобы данные были общими</p>
+      <p class="login-url">{{ currentUrl }}</p>
     </div>
   </div>
 
-  <!-- Основное приложение -->
   <div v-else class="shell">
     <header class="topbar">
       <div class="brand-row">
@@ -84,6 +88,7 @@ const tab = ref<'dashboard' | 'incomes' | 'expenses' | 'analytics' | 'settings'>
 const expenseSheetOpen = ref(false)
 const editingExpenseId = ref<string | null>(null)
 const loggingIn = ref(false)
+const currentUrl = ref(window.location.hostname)
 
 onMounted(async () => {
   await authStore.init()
@@ -92,9 +97,8 @@ onMounted(async () => {
 
 async function login() {
   loggingIn.value = true
-  // loginWithGoogle() запускает редирект — страница уйдёт на Google
-  // loggingIn останется true до ухода
   await authStore.loginWithGoogle()
+  loggingIn.value = false
 }
 
 function openAddExpense() { editingExpenseId.value = null; expenseSheetOpen.value = true }
@@ -115,10 +119,7 @@ provide('openAddExpense', openAddExpense)
   gap: 16px;
   background: var(--color-bg);
 }
-.splash-text {
-  font-size: 14px;
-  color: var(--color-text-muted);
-}
+.splash-text { font-size: 14px; color: var(--color-text-muted); }
 .content-loading {
   display: flex;
   align-items: center;
@@ -133,7 +134,6 @@ provide('openAddExpense', openAddExpense)
   animation: spin .7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-
 .login-screen {
   min-height: 100dvh;
   display: flex;
@@ -157,16 +157,17 @@ provide('openAddExpense', openAddExpense)
   background: linear-gradient(180deg, var(--color-primary-2), var(--color-primary));
   box-shadow: 0 0 0 12px rgba(139,108,255,.08);
 }
-.login-title {
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: -.03em;
-  margin-top: 8px;
-}
-.login-sub {
-  color: var(--color-text-muted);
-  font-size: 15px;
-  margin-top: -8px;
+.login-title { font-size: 32px; font-weight: 800; letter-spacing: -.03em; margin-top: 8px; }
+.login-sub { color: var(--color-text-muted); font-size: 15px; margin-top: -8px; }
+.login-error {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(255,109,138,.12);
+  border: 1px solid rgba(255,109,138,.25);
+  color: var(--color-negative);
+  font-size: 13px;
+  text-align: left;
 }
 .google-btn {
   display: flex;
@@ -187,17 +188,8 @@ provide('openAddExpense', openAddExpense)
 }
 .google-btn:active { background: rgba(255,255,255,.1); }
 .google-btn:disabled { opacity: .6; }
-.login-hint {
-  font-size: 12px;
-  color: var(--color-text-faint);
-  max-width: 28ch;
-  line-height: 1.5;
-}
+.login-hint { font-size: 12px; color: var(--color-text-faint); max-width: 28ch; line-height: 1.5; }
+.login-url { font-size: 11px; color: var(--color-text-faint); font-family: monospace; }
 .topbar-user { margin-left: auto; }
-.user-avatar {
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  border: 2px solid var(--color-border);
-  object-fit: cover;
-}
+.user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--color-border); object-fit: cover; }
 </style>
