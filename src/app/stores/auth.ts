@@ -26,20 +26,10 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     async init(): Promise<void> {
       this.error = ''
-      try {
-        const result = await getRedirectResult(auth)
-        if (result?.user) {
-          this.user = result.user
-        }
-      } catch (e: any) {
-        console.error('Redirect result error:', e)
-        // Не показываем ошибку redirect если пользователь просто открыл страницу без редиректа
-        if (e?.code && e.code !== 'auth/no-auth-event') {
-          this.error = e.message ?? 'Ошибка авторизации'
-        }
-      }
 
-      return new Promise((resolve) => {
+      // Ждём первого события onAuthStateChanged — оно само содержит
+      // актуального пользователя после редиректа с Google
+      await new Promise<void>((resolve) => {
         const unsub = onAuthStateChanged(auth, (user) => {
           this.user = user
           this.ready = true
@@ -47,6 +37,22 @@ export const useAuthStore = defineStore('auth', {
           resolve()
         })
       })
+
+      // Если после onAuthStateChanged пользователь всё ещё не залогинен —
+      // пробуем getRedirectResult (на случай медленного ответа Firebase)
+      if (!this.user) {
+        try {
+          const result = await getRedirectResult(auth)
+          if (result?.user) {
+            this.user = result.user
+          }
+        } catch (e: any) {
+          if (e?.code && e.code !== 'auth/no-auth-event') {
+            this.error = e.message ?? 'Ошибка авторизации'
+            console.error('getRedirectResult error:', e)
+          }
+        }
+      }
     },
 
     async loginWithGoogle() {
