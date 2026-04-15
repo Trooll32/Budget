@@ -2,7 +2,11 @@
   <Teleport to="body">
     <div class="sheet-backdrop open" @click="emit('close')">
       <div class="sheet open" @click.stop ref="sheetEl">
+
+        <!-- Handle -->
         <div class="sheet-handle" @touchstart.passive="dragStart" @touchmove.passive="dragMove" @touchend="dragEnd"></div>
+
+        <!-- Head -->
         <div class="sheet-head">
           <div>
             <h3>{{ editingId ? 'Редактировать трату' : 'Новая трата' }}</h3>
@@ -10,39 +14,87 @@
           </div>
           <button class="icon-btn" type="button" @click="emit('close')">×</button>
         </div>
-        <form class="fields" @submit.prevent="submit">
-          <div class="two-col">
-            <div class="field">
-              <label for="exp-date">Дата</label>
-              <input id="exp-date" v-model="date" type="date" class="field-input" />
-            </div>
-            <div class="field">
-              <label for="exp-amount">Сумма</label>
-              <input id="exp-amount" v-model.number="amount" type="number" min="0" step="0.01" placeholder="0" class="field-input" />
-            </div>
-          </div>
-          <div class="two-col">
-            <div class="field">
-              <label for="exp-account">Счёт</label>
-              <select id="exp-account" v-model="accountId" class="field-input">
-                <option v-for="a in store.accounts" :key="a.id" :value="a.id">{{ a.name }}</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="exp-category">Категория</label>
-              <select id="exp-category" v-model="categoryId" class="field-input">
-                <option v-for="c in store.categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-              </select>
+
+        <form class="es-form" @submit.prevent="submit">
+
+          <!-- Amount (big) -->
+          <div class="es-amount-wrap">
+            <div class="es-amount__label">Сумма</div>
+            <div class="es-amount__row">
+              <span class="es-amount__currency">₽</span>
+              <input
+                ref="amountInput"
+                v-model.number="amount"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0"
+                class="es-amount__input"
+                inputmode="decimal"
+              />
             </div>
           </div>
+
+          <!-- Date -->
           <div class="field">
-            <label for="exp-note">Комментарий</label>
-            <input id="exp-note" v-model="note" type="text" placeholder="Например: супермаркет" class="field-input" />
+            <label class="es-field-label">Дата</label>
+            <input v-model="date" type="date" class="field-input" />
           </div>
-          <div class="inline-actions">
-            <button v-if="editingId" class="danger-btn" type="button" @click="deleteItem">Удалить</button>
-            <button class="primary-btn" type="submit">Сохранить</button>
+
+          <!-- Account picker -->
+          <div class="field">
+            <label class="es-field-label">Счёт</label>
+            <div class="es-picker">
+              <button
+                v-for="acc in store.accounts"
+                :key="acc.id"
+                type="button"
+                class="es-pill"
+                :class="{ 'es-pill--active': accountId === acc.id }"
+                :style="accountId === acc.id ? { borderColor: acc.color, background: acc.color + '22' } : {}"
+                @click="accountId = acc.id"
+              >
+                <span class="es-pill__dot" :style="{ background: acc.color }"></span>
+                {{ acc.name }}
+              </button>
+            </div>
           </div>
+
+          <!-- Category picker -->
+          <div class="field">
+            <label class="es-field-label">Категория</label>
+            <div class="es-picker">
+              <button
+                v-for="cat in store.categories"
+                :key="cat.id"
+                type="button"
+                class="es-pill"
+                :class="{ 'es-pill--active': categoryId === cat.id }"
+                :style="categoryId === cat.id ? { borderColor: cat.color, background: cat.color + '22' } : {}"
+                @click="categoryId = cat.id"
+              >
+                <span class="es-pill__dot" :style="{ background: cat.color }"></span>
+                {{ cat.name }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Note -->
+          <div class="field">
+            <label class="es-field-label">Комментарий</label>
+            <input v-model="note" type="text" placeholder="Например: супермаркет" class="field-input" />
+          </div>
+
+          <!-- Actions -->
+          <div class="es-actions">
+            <button v-if="editingId" class="danger-btn es-actions__del" type="button" @click="deleteItem">Удалить</button>
+            <button
+              class="primary-btn es-actions__save"
+              type="submit"
+              :disabled="!amount || amount <= 0 || !accountId || !categoryId"
+            >Сохранить</button>
+          </div>
+
         </form>
       </div>
     </div>
@@ -50,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { useBudgetStore } from '../../app/stores/budget'
 import { useMoney } from '../../composables/useMoney'
 
@@ -66,11 +118,10 @@ const accountId = ref('')
 const categoryId = ref('')
 const note = ref('')
 const sheetEl = ref<HTMLElement | null>(null)
+const amountInput = ref<HTMLInputElement | null>(null)
 
-let dragStartY = 0
-let dragCurrentY = 0
-let dragging = false
-
+// ── Drag to close
+let dragStartY = 0, dragCurrentY = 0, dragging = false
 function dragStart(e: TouchEvent) {
   dragStartY = e.touches[0].clientY
   dragCurrentY = 0
@@ -90,7 +141,8 @@ function dragEnd() {
   if (sheetEl.value) sheetEl.value.style.transform = ''
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // defaults
   if (store.accounts.length) accountId.value = store.accounts[0].id
   if (store.categories.length) categoryId.value = store.categories[0].id
 
@@ -104,6 +156,10 @@ onMounted(() => {
       note.value = item.note
     }
   }
+
+  // focus amount field
+  await nextTick()
+  amountInput.value?.focus()
 })
 
 async function submit() {
@@ -129,3 +185,99 @@ async function deleteItem() {
   emit('close')
 }
 </script>
+
+<style scoped>
+/* ── Amount block ───────────────────────────────────────────────── */
+.es-form { display: grid; gap: var(--space-4); }
+
+.es-amount-wrap {
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+}
+.es-amount__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+}
+.es-amount__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.es-amount__currency {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  line-height: 1;
+}
+.es-amount__input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 36px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  letter-spacing: -.02em;
+  width: 100%;
+  -moz-appearance: textfield;
+}
+.es-amount__input::-webkit-outer-spin-button,
+.es-amount__input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.es-amount__input::placeholder { color: var(--color-text-faint); }
+
+/* ── Field label ──────────────────────────────────────────────────── */
+.es-field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+  display: block;
+}
+
+/* ── Pill picker ───────────────────────────────────────────────────── */
+.es-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.es-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: rgba(255,255,255,.04);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+  cursor: pointer;
+}
+.es-pill--active {
+  color: var(--color-text);
+  font-weight: 600;
+}
+.es-pill__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Actions ─────────────────────────────────────────────────────────── */
+.es-actions {
+  display: flex;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+}
+.es-actions__save { flex: 1; }
+.es-actions__del { flex-shrink: 0; min-width: 100px; }
+</style>
