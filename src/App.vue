@@ -25,7 +25,6 @@
       </button>
 
       <p class="login-hint">Войдите с одного аккаунта, чтобы данные были общими</p>
-      <p class="login-url">{{ currentUrl }}</p>
     </div>
   </div>
 
@@ -72,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, provide } from 'vue'
+import { ref, onMounted, watch, provide } from 'vue'
 import { useAuthStore } from './app/stores/auth'
 import { useBudgetStore } from './app/stores/budget'
 import DashboardPage from './pages/DashboardPage.vue'
@@ -88,12 +87,25 @@ const tab = ref<'dashboard' | 'incomes' | 'expenses' | 'analytics' | 'settings'>
 const expenseSheetOpen = ref(false)
 const editingExpenseId = ref<string | null>(null)
 const loggingIn = ref(false)
-const currentUrl = ref(window.location.hostname)
 
 onMounted(async () => {
   await authStore.init()
   if (authStore.isLoggedIn) await budgetStore.init()
 })
+
+// После popup-авторизации uid меняется null → string
+// инициализируем budgetStore если ещё не готов
+ watch(
+  () => authStore.uid,
+  async (uid) => {
+    if (uid && !budgetStore.ready) {
+      await budgetStore.init()
+    }
+    if (!uid) {
+      budgetStore.ready = false
+    }
+  }
+)
 
 async function login() {
   loggingIn.value = true
@@ -189,7 +201,6 @@ provide('openAddExpense', openAddExpense)
 .google-btn:active { background: rgba(255,255,255,.1); }
 .google-btn:disabled { opacity: .6; }
 .login-hint { font-size: 12px; color: var(--color-text-faint); max-width: 28ch; line-height: 1.5; }
-.login-url { font-size: 11px; color: var(--color-text-faint); font-family: monospace; }
 .topbar-user { margin-left: auto; }
 .user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--color-border); object-fit: cover; }
 </style>
