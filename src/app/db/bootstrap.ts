@@ -22,24 +22,16 @@ function makeMonthRecord(date: Date): MonthRecord {
   }
 }
 
-/**
- * Ensure all months from APP_START_YEAR up to current month exist in DB.
- * We use a fixed start: January of the year when the app first ran
- * (determined by the oldest month in DB, or current year if empty).
- */
-const APP_START_YEAR = 2024 // change if needed
+// Начало истории — меняй по необходимости
+const START_YEAR = 2024
+const START_MONTH = 1
 
 export async function ensureCurrentMonth(): Promise<string> {
   const now = new Date()
   const currentId = monthIdFromDate(now)
 
-  // Find the earliest existing month to use as the start boundary
-  const oldest = await db.months.orderBy('id').first()
-  const startYear = oldest ? parseInt(oldest.id.split('-')[0]) : APP_START_YEAR
-  const startMonth = oldest ? parseInt(oldest.id.split('-')[1]) : 1
-
-  // Generate every month from start up to (and including) current month
-  const cursor = new Date(startYear, startMonth - 1, 1)
+  // Всегда создаём все месяцы от START_YEAR/START_MONTH до сегодняшнего
+  const cursor = new Date(START_YEAR, START_MONTH - 1, 1)
   const end = new Date(now.getFullYear(), now.getMonth(), 1)
 
   while (cursor <= end) {
