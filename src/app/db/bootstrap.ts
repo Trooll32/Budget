@@ -37,20 +37,34 @@ export async function seedDefaults() {
 
   if (accountsCount === 0) {
     const accounts: AccountRecord[] = [
-      { id: crypto.randomUUID(), name: 'Основной', percent: 50, color: '#4f98a3', archived: false },
-      { id: crypto.randomUUID(), name: 'Подушка', percent: 30, color: '#6daa45', archived: false },
-      { id: crypto.randomUUID(), name: 'Инвестиции', percent: 20, color: '#e8af34', archived: false }
+      { id: crypto.randomUUID(), name: 'Накопления', percent: 30, color: '#58d67b', archived: false },
+      { id: crypto.randomUUID(), name: 'Бытовой', percent: 35, color: '#8b6cff', archived: false },
+      { id: crypto.randomUUID(), name: 'Инвестиции', percent: 20, color: '#7ce5e0', archived: false },
+      { id: crypto.randomUUID(), name: 'Путешествия', percent: 15, color: '#ff9a5c', archived: false }
     ]
     await db.accounts.bulkAdd(accounts)
   }
 
   if (categoriesCount === 0) {
     const categories: CategoryRecord[] = [
-      { id: crypto.randomUUID(), name: 'Продукты', color: '#4f98a3', archived: false },
-      { id: crypto.randomUUID(), name: 'Дом', color: '#bb653b', archived: false },
-      { id: crypto.randomUUID(), name: 'Транспорт', color: '#5591c7', archived: false },
-      { id: crypto.randomUUID(), name: 'Досуг', color: '#a86fdf', archived: false }
+      { id: crypto.randomUUID(), name: 'Продукты', color: '#8b6cff', archived: false },
+      { id: crypto.randomUUID(), name: 'Дом', color: '#58d67b', archived: false },
+      { id: crypto.randomUUID(), name: 'Транспорт', color: '#7ce5e0', archived: false },
+      { id: crypto.randomUUID(), name: 'Рестораны', color: '#ff9a5c', archived: false },
+      { id: crypto.randomUUID(), name: 'Подписки', color: '#ff6d8a', archived: false }
     ]
     await db.categories.bulkAdd(categories)
   }
+}
+
+export async function resetAllData() {
+  await db.transaction('rw', db.months, db.accounts, db.categories, db.incomes, db.expenses, async () => {
+    await db.months.clear()
+    await db.accounts.clear()
+    await db.categories.clear()
+    await db.incomes.clear()
+    await db.expenses.clear()
+  })
+  await seedDefaults()
+  await ensureCurrentMonth()
 }

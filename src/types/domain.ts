@@ -42,3 +42,12 @@ export interface ExpenseEntry {
   note: string
   createdAt: string
 }
+
+export interface Totals {
+  totalIncome: number
+  totalExpense: number
+  freeCash: number
+  allocatedByAccount: Record<string, number>
+  spentByAccount: Record<string, number>
+  spentByCategory: Record<string, number>
+}

@@ -5,27 +5,30 @@
       <span class="chevron">▾</span>
     </button>
 
-    <div v-if="open" class="sheet-backdrop" @click="open = false">
-      <div class="sheet" @click.stop>
-        <div class="sheet-head">
-          <strong>Выбор месяца</strong>
-          <button class="sheet-close" type="button" @click="open = false">Закрыть</button>
-        </div>
-        <div class="sheet-list">
-          <button
-            v-for="month in store.months"
-            :key="month.id"
-            class="sheet-item"
-            :class="{ active: month.id === store.activeMonthId }"
-            type="button"
-            @click="selectMonth(month.id)"
-          >
-            <span>{{ month.label }}</span>
-            <small>{{ month.id }}</small>
-          </button>
+    <Teleport to="body">
+      <div v-if="open" class="sheet-backdrop open" @click="open = false">
+        <div class="sheet open" @click.stop>
+          <div class="sheet-handle"></div>
+          <div class="sheet-head">
+            <strong>Выбор месяца</strong>
+            <button class="icon-btn" type="button" @click="open = false">×</button>
+          </div>
+          <div class="sheet-list">
+            <button
+              v-for="month in store.months"
+              :key="month.id"
+              class="sheet-item"
+              :class="{ active: month.id === store.activeMonthId }"
+              type="button"
+              @click="selectMonth(month.id)"
+            >
+              <span>{{ month.label }}</span>
+              <small>{{ month.id }}</small>
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 
